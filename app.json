@@ -1,0 +1,13 @@
+{
+  "name": "NicoSearchFeed",
+  "description": "",
+  "keywords": [
+  ],
+  "addons": [
+    "redistogo:nano",
+    "scheduler:standard"
+  ],
+  "env": {
+    "TZ": "Asia/Tokyo"
+  }
+}
