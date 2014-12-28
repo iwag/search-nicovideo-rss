@@ -3,6 +3,9 @@ require 'builder'
 require 'time'
 require 'net/http'
 require 'json'
+require 'redis'
+
+redis = Redis.new( url: ENV['REDISTOGO_URL'] || 'redis://localhost:56379')
 
 get '/' do
 end
@@ -33,6 +36,14 @@ get '/rss' do
   hits = query(q)
   hits = hits[0]["values"]
 
+  hits.clone.each do |h|
+    if redis.get(h['cmsid'])
+      hits.delete_if{ |v| v['cmsid'] == h['cmsid'] }
+    else
+      redis.set(h['cmsid'], h.to_json)
+    end
+  end
+
   xml = Builder::XmlMarkup.new
   xml.instruct! :xml, :version => "1.1", :encoding => "UTF-8"
   xml.rss :version => '2.0' do
@@ -51,3 +62,7 @@ get '/rss' do
     end
   end
 end
+
+get '/delete' do
+end
+
