@@ -36,13 +36,17 @@ get '/rss' do
   hits = query(q)
   hits = hits[0]["values"]
 
+  stored = redis.lrange s, 0, 2024
+
   hits.clone.each do |h|
-    if redis.get(h['cmsid'])
+    if stored.any?{|i| JSON.parse(i)['cmsid'] == h['cmsid'] }
       hits.delete_if{ |v| v['cmsid'] == h['cmsid'] }
     else
-      redis.set(h['cmsid'], h.to_json)
+      redis.rpush(h['cmsid'], h.to_json)
     end
   end
+
+  stored = redis.lrange s, -redis.llen, -1
 
   xml = Builder::XmlMarkup.new
   xml.instruct! :xml, :version => "1.1", :encoding => "UTF-8"
@@ -50,11 +54,12 @@ get '/rss' do
     xml.channel do
       xml.title 'waiwai'
       xml.link 'http://search.nicovideo.jp'
-      hits.each do |v|
+      stored.each do |u|
+        v = u.to_json
         xml.item do
           xml.title v['title']
           xml.link 'http://search.nicovideo.jp'
-          xml.description v['description'][0...512]
+          xml.description v['description'] #[0...512]
           xml.pubDate Time.parse(v['start_time']).rfc822() # requires TZ=JST
           xml.guid "http://#{s}.nicovideo.jp/watch/#{v['cmsid']}"
         end
@@ -64,5 +69,8 @@ get '/rss' do
 end
 
 get '/delete' do
+  redis.keys.each do |k,v|
+    redis.del(k)
+  end
 end
 
