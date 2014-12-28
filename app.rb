@@ -52,14 +52,14 @@ get '/rss' do
   xml.instruct! :xml, :version => "1.1", :encoding => "UTF-8"
   xml.rss :version => '2.0' do
     xml.channel do
-      xml.title 'waiwai'
+      xml.title 'search-nicolive'
       xml.link 'http://search.nicovideo.jp'
       stored.each do |u|
         v = JSON.parse(u)
         xml.item do
           xml.title v['title']
           xml.link 'http://search.nicovideo.jp'
-          xml.description v['description'] #[0...512]
+          xml.description "" # v['description'] 
           xml.pubDate Time.parse(v['start_time']).rfc822() # requires TZ=JST
           xml.guid "http://#{s}.nicovideo.jp/watch/#{v['cmsid']}"
         end
