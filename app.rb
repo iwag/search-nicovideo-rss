@@ -41,7 +41,15 @@ get '/rss' do
     {type: "equal", field: "live_status", value: "onair"},
     {type: "equal", field: "provider_type", value: "official"},
     {type:"range", field:"score_timeshift_reserved", from:10}]
-  q = {query: term, service: [s], search: ["title", "description"], join: ["title","description","start_time","cmsid"], filters: filters, size:100, issuer: "github.com/iwag/search-nicovideo-rss", reason: "ma10"}.to_json
+  q = {query: term, 
+       service: [s], 
+       search: ["title", "description"], 
+       join: ["title","description","start_time","cmsid"], 
+       filters: filters, 
+       size:100, 
+       sort_by:"start_time",
+       issuer: "github.com/iwag/search-nicovideo-rss", reason: "ma10"
+       }.to_json
   hits = query(q)
   hits = (hits==nil || hits.empty? || hits[0] == nil || hits[0]["values"] == nil) ?  [] : hits[0]["values"]
 
