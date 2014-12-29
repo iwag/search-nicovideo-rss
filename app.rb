@@ -52,10 +52,11 @@ get '/rss' do
       ;
     else
       redis.rpush(s, h.to_json) if redis != nil
+      stored.push(h.to_json)
     end
   end
 
-  stored = redis == nil ? hits : redis.lrange(s, -redis.llen(s), -1)
+  stored.reverse!
 
   xml = Builder::XmlMarkup.new
   xml.instruct! :xml, :version => "1.1", :encoding => "UTF-8"
