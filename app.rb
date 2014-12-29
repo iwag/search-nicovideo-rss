@@ -5,13 +5,74 @@ require 'net/http'
 require 'json'
 require 'redis'
 
-redis = if (ENV["RACK_ENV"]=="localhost" ) 
-          nil
+redis = if (ENV["REDISTOGO_URL"])
+          Redis.new( url: ENV['REDISTOGO_URL'])
         else
-          Redis.new( url: ENV['REDISTOGO_URL'] || 'redis://localhost:56379')
+          nil
         end
 
-get '/' do
+class QueryBuilder
+  def  initialize(qq)
+    @q = qq || {query: "test", service: ["video"], search: ["title", "description"], join: ["title"], issuer: "github.com/iwag/search-nicovideo-rss", reason:"ma10"}
+  end
+
+  def query(s)
+    @q[:query] = s
+    self
+  end
+
+  def service(s)
+    if s.is_a?(Array)
+      @q[:service] = s
+    end
+    self
+  end
+
+  def search(s)
+    if s.is_a?(Array)
+     @q[:search] = s
+    end
+    self
+  end
+
+  def join(j)
+    if j.is_a?(Array)
+     @q[:join] = j
+    end
+    self
+  end
+
+  def issuer(s)
+    if s.is_a?(String)
+      @q[:issuer] = s
+    end
+    self
+  end
+
+  def sort_by(s)
+    if s.is_a?(String)
+      @q[:sort_by] = s
+    end
+    self
+  end
+
+  def desc(d)
+    if d==true
+      @q[:order] = "desc"
+    else
+      @q[:order] = "asc"
+    end
+    self
+  end
+
+  def filters(f)
+    @q[:filters] = f
+    self
+  end
+
+  def build
+    @q
+  end
 end
 
 def query(q)
@@ -29,6 +90,10 @@ def makeUrl(s, id)
   "http://#{s}.nicovideo.jp/watch/#{id}"
 end
 
+get '/' do
+  status 400
+end
+
 get '/rss' do 
   status 200
   headers \
@@ -41,16 +106,8 @@ get '/rss' do
     {type: "equal", field: "live_status", value: "onair"},
     {type: "equal", field: "provider_type", value: "official"},
     {type:"range", field:"score_timeshift_reserved", from:10}]
-  q = {query: term, 
-       service: [s], 
-       search: ["title", "description"], 
-       join: ["title","description","start_time","cmsid"], 
-       filters: filters, 
-       size:100, 
-       sort_by:"start_time",
-       order:"ASC",
-       issuer: "github.com/iwag/search-nicovideo-rss", reason: "ma10"
-       }.to_json
+  qb = QueryBuilder.new({})
+  q = qb.query(term).service([s]).search(["title","description"]).join(["title","description","start_time","cmsid"]).filters(filters).sort_by("start_time").desc(false).build().to_json
   hits = query(q)
   hits = (hits==nil || hits.empty? || hits[0] == nil || hits[0]["values"] == nil) ?  [] : hits[0]["values"]
 
