@@ -5,7 +5,11 @@ require 'net/http'
 require 'json'
 require 'redis'
 
-redis = Redis.new( url: ENV['REDISTOGO_URL'] || 'redis://localhost:56379')
+redis = if (ENV["RACK_ENV"]=="localhost" ) 
+          nil
+        else
+          Redis.new( url: ENV['REDISTOGO_URL'] || 'redis://localhost:56379')
+        end
 
 get '/' do
 end
@@ -31,32 +35,33 @@ get '/rss' do
         "Content-Type"   => "application/xml",
         "Last-Modified" => Time.now.rfc822().to_s
 
-  s = "live"
-  filters =  [{type: "equal", field: "ss_adult", value: false},
-              {type: "equal", field: "live_status", value: "onair"},
-              {type: "equal", field: "provider_type", value: "official"},
-              {type:"range", field:"score_timeshift_reserved", from:10}]
-  q = {query: "は or の or 【 or 「", service: [s], search: ["title", "description"], join: ["title","description","start_time","cmsid"], filters: filters, size:100}.to_json
+  term = ENV["QUERY_TERM"] || "アニメ"
+  s = ENV["QUERY_SERVICE"] || "live"
+  filters =  [
+    {type: "equal", field: "live_status", value: "onair"},
+    {type: "equal", field: "provider_type", value: "official"},
+    {type:"range", field:"score_timeshift_reserved", from:10}]
+  q = {query: term, service: [s], search: ["title", "description"], join: ["title","description","start_time","cmsid"], filters: filters, size:100, issuer: "github.com/iwag/search-nicovideo-rss", reason: "ma10"}.to_json
   hits = query(q)
-  hits = hits[0]["values"]
+  hits = (hits==nil || hits.empty? || hits[0] == nil || hits[0]["values"] == nil) ?  [] : hits[0]["values"]
 
-  stored = redis.lrange(s, 0, 2024)
+  stored = redis == nil ? [] : redis.lrange(s, 0, 1024)
 
-  hits.clone.each do |h|
+  hits.each do |h|
     if stored.any?{|i| JSON.parse(i)['cmsid'] == h['cmsid'] }
-      hits.delete_if{ |v| v['cmsid'] == h['cmsid'] }
+      ;
     else
-      redis.rpush(s, h.to_json)
+      redis.rpush(s, h.to_json) if redis != nil
     end
   end
 
-  stored = redis.lrange(s, -redis.llen(s), -1)
+  stored = redis == nil ? hits : redis.lrange(s, -redis.llen(s), -1)
 
   xml = Builder::XmlMarkup.new
   xml.instruct! :xml, :version => "1.1", :encoding => "UTF-8"
   xml.rss :version => '2.0' do
     xml.channel do
-      xml.title 'search-nicolive'
+      xml.title 'search-nico' + s + " " + term
       xml.link 'http://search.nicovideo.jp'
       stored.each do |u|
         v = JSON.parse(u)
