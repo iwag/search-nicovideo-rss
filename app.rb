@@ -48,6 +48,7 @@ get '/rss' do
        filters: filters, 
        size:100, 
        sort_by:"start_time",
+       order:"ASC",
        issuer: "github.com/iwag/search-nicovideo-rss", reason: "ma10"
        }.to_json
   hits = query(q)
