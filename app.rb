@@ -70,7 +70,7 @@ get '/rss' do
           u = makeUrl(s, v['cmsid'])
           xml.title v['title']
           xml.link u
-          xml.description "" # v['description'] 
+          xml.description v['description'] 
           xml.pubDate Time.parse(v['start_time']).rfc822() # requires TZ=JST
           xml.guid u
         end
