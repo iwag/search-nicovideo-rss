@@ -21,6 +21,10 @@ def query(q)
   arr.select{ |i| i["type"]=="hits" && ! i["endofstream"] }
 end
 
+def makeUrl(s, id)
+  "http://#{s}.nicovideo.jp/watch/#{id}"
+end
+
 get '/rss' do 
   status 200
   headers \
@@ -57,11 +61,12 @@ get '/rss' do
       stored.each do |u|
         v = JSON.parse(u)
         xml.item do
+          u = makeUrl(s, v['cmsid'])
           xml.title v['title']
-          xml.link 'http://search.nicovideo.jp'
+          xml.link u
           xml.description "" # v['description'] 
           xml.pubDate Time.parse(v['start_time']).rfc822() # requires TZ=JST
-          xml.guid "http://#{s}.nicovideo.jp/watch/#{v['cmsid']}"
+          xml.guid u
         end
       end
     end
