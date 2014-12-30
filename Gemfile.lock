@@ -1,3 +1,9 @@
+GIT
+  remote: https://github.com/iwag/search-nicovideo-rb.git
+  revision: 3e70d208b510831a68130f2e8752698319c3a8d0
+  specs:
+    search-nicovideo-rb (0.1.0)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -18,4 +24,5 @@ PLATFORMS
 DEPENDENCIES
   builder
   redis
+  search-nicovideo-rb!
   sinatra

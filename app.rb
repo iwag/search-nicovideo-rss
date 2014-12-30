@@ -4,91 +4,14 @@ require 'time'
 require 'net/http'
 require 'json'
 require 'redis'
+require 'nicosearch'
+require 'date'
 
 redis = if (ENV["REDISTOGO_URL"])
           Redis.new( url: ENV['REDISTOGO_URL'])
         else
           nil
         end
-
-class QueryBuilder
-  def  initialize(qq)
-    @q = qq || {query: "test", service: ["video"], search: ["title", "description"], join: ["title"], issuer: "github.com/iwag/search-nicovideo-rss", reason:"ma10"}
-  end
-
-  def query(s)
-    @q[:query] = s
-    self
-  end
-
-  def service(s)
-    if s.is_a?(Array)
-      @q[:service] = s
-    end
-    self
-  end
-
-  def search(s)
-    if s.is_a?(Array)
-     @q[:search] = s
-    end
-    self
-  end
-
-  def join(j)
-    if j.is_a?(Array)
-     @q[:join] = j
-    end
-    self
-  end
-
-  def issuer(s)
-    if s.is_a?(String)
-      @q[:issuer] = s
-    end
-    self
-  end
-
-  def sort_by(s)
-    if s.is_a?(String)
-      @q[:sort_by] = s
-    end
-    self
-  end
-
-  def desc(d)
-    if d==true
-      @q[:order] = "desc"
-    else
-      @q[:order] = "asc"
-    end
-    self
-  end
-
-  def filters(f)
-    @q[:filters] = f
-    self
-  end
-
-  def build
-    @q
-  end
-end
-
-def query(q)
-  uri = URI.parse('http://search.nicovideo.jp/api/')
-  res = nil
-  Net::HTTP.start(uri.host, uri.port){|http|
-    json = q || {query: "test", service: ["video"], search: ["title", "description"], join: ["title"]}.to_json
-    res = http.post(uri.path, json)
-  }
-  arr = res.body.split("\n").map{|i| JSON.parse(i) }
-  arr.select{ |i| i["type"]=="hits" && ! i["endofstream"] }
-end
-
-def makeUrl(s, id)
-  "http://#{s}.nicovideo.jp/watch/#{id}"
-end
 
 get '/' do
   status 400
@@ -103,12 +26,14 @@ get '/rss' do
   term = ENV["QUERY_TERM"] || "アニメ"
   s = ENV["QUERY_SERVICE"] || "live"
   filters =  [
-    {type: "equal", field: "live_status", value: "onair"},
-    {type: "equal", field: "provider_type", value: "official"},
-    {type:"range", field:"score_timeshift_reserved", from:10}]
-  qb = QueryBuilder.new({})
+    SearchNicovideo::FilterBuilder.new().type("equal").field("live_status").value("onair").build(),
+    SearchNicovideo::FilterBuilder.new().type("equal").field("provider_type").value("official").build(),
+    SearchNicovideo::FilterBuilder.new().type("range").field("score_timeshift_reserved").from(10).build()
+  ]
+  qb = SearchNicovideo::QueryBuilder.new()
   q = qb.query(term).service([s]).search(["title","description"]).join(["title","description","start_time","cmsid"]).filters(filters).sort_by("start_time").desc(false).build().to_json
-  hits = query(q)
+  res = SearchNicovideo::search(q)
+  hits = res[:hits] 
   hits = (hits==nil || hits.empty? || hits[0] == nil || hits[0]["values"] == nil) ?  [] : hits[0]["values"]
 
   stored = redis == nil ? [] : redis.lrange(s, 0, 1024)
@@ -129,15 +54,15 @@ get '/rss' do
   xml.rss :version => '2.0' do
     xml.channel do
       xml.title 'search-nico' + s + " " + term
-      xml.link 'http://search.nicovideo.jp'
+      xml.link SearchNicovideo::uri_string
       stored.each do |u|
         v = JSON.parse(u)
         xml.item do
-          u = makeUrl(s, v['cmsid'])
+          u = SearchNicovideo::watch_uri(s, v['cmsid']).to_s
           xml.title v['title']
           xml.link u
           xml.description v['description'] 
-          xml.pubDate Time.parse(v['start_time']).rfc822() # requires TZ=JST
+          xml.pubDate SearchNicovideo.parse_time(v['start_time']).rfc822() # requires TZ=JST
           xml.guid u
         end
       end
