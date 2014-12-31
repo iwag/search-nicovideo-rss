@@ -6,13 +6,10 @@ search-nicovideo-rss
 how to work.
 
 ```
-heroku create
-heroku addon:redistogo
-git push master
-heroku create
-heroku addon:redistogo
-git push heroku origin
-heroku config:set TZ="Asia/Tokyo" RACK_ENV="production" QUERY_TERM="アニメ"
-open http://$(your heroku url)/rss
+$ heroku create
+$ heroku addon:redistogo
+$ git push heroku origin
+$ heroku config:set TZ="Asia/Tokyo" RACK_ENV="production" QUERY_TERM="アニメ"
+$ open http://$(your heroku url)/rss
 ```
 
